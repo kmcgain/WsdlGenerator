@@ -1,0 +1,69 @@
+﻿<#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
+<#@ import namespace="CSGeneration" #>
+
+<#+
+class PropertyTemplate : TextTransformation, CSTemplate
+{
+	private string propertyName;
+	private string returnType;
+	private string referenceField;
+	private IList<AttributeDescription> attributes;
+
+	public PropertyTemplate(string propertyName, string returnType, string referenceField, IList<AttributeDescription> attributes)
+	{
+		this.propertyName = propertyName;
+		this.returnType = returnType;
+		this.referenceField = referenceField ?? propertyName;
+		this.attributes = attributes;
+	}
+
+	protected virtual void WriteBody()
+	{
+		#>
+get
+{
+	return this.<#= this.referenceField #>Field;
+}
+set
+{
+	this.<#= this.referenceField #>Field = value;
+}<#+
+	}
+
+	protected virtual void WriteAttributes()
+	{
+		if (this.attributes == null || this.attributes.Count == 0)
+			return;
+
+		foreach (AttributeDescription attribute in this.attributes)
+		{
+			Write(new AttributeTemplate(attribute.Name, attribute.Arguments).TransformText());
+		}
+	}
+
+	protected virtual void WriteComments()
+	{
+	}
+
+	public override string TransformText()
+	{
+#>
+<#+
+	WriteComments();
+	WriteAttributes();
+#>
+public virtual <#= returnType #> <#= propertyName #>
+{
+<#+
+	PushIndent("    ");
+	WriteBody();
+	PopIndent();
+#>
+
+}
+<#+
+		return GenerationEnvironment.ToString();
+	}
+}
+
+#>

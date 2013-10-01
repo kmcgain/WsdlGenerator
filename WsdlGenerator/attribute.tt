@@ -1,0 +1,39 @@
+﻿<#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
+<#+
+class AttributeTemplate: TextTransformation
+{
+	private string attributeName;
+	private string parameters;
+
+	public AttributeTemplate(string attributeName, IList<ArgumentDescription> parameters)
+	{
+		this.attributeName = attributeName;
+
+		// Do some transformation of the params
+		if (parameters == null || parameters.Count == 0)
+		{
+			this.parameters = string.Empty;
+			return;
+		}
+		
+		string[] strs = new string[parameters.Count];
+		for (int i = 0; i < parameters.Count; i++)
+		{
+			strs[i] = parameters[i].ToString();
+		}
+		
+		this.parameters = string.Join(", ", strs);
+	}
+
+	public override string TransformText()
+	{
+
+	#>
+[<#= attributeName #>(<#= this.parameters #>)]
+<#+
+
+		return GenerationEnvironment.ToString();
+	}
+}
+
+#>

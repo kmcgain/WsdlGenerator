@@ -1,0 +1,273 @@
+﻿<#@ template language="C#" debug="True" hostspecific="True" #>
+
+<# string serviceUrlPath = "http://localhost:28466/Service1.svc?singleWsdl"; 
+string tab = "    ";
+#>
+
+<#@ assembly name="EnvDTE" #>
+
+<#@ assembly name="C:\Windows\Microsoft.NET\Framework\v2.0.50727\System.Xml.dll" #>
+
+<#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0\System.Runtime.Serialization.dll" #>
+<#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0\System.ServiceModel.dll" #>
+<#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5\System.Xml.Linq.dll" #>
+<#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5\System.Core.dll" #>
+
+<#@ assembly name="CSGeneration.dll" #>
+
+<#@ import namespace="System" #>
+<#@ import namespace="System.CodeDom.Compiler" #>
+<#@ import namespace="System.Collections.ObjectModel" #>
+<#@ import namespace="System.Collections.Generic"#>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Reflection" #>
+<#@ import namespace="System.Runtime.Serialization" #>
+<#@ import namespace="System.ServiceModel" #>
+<#@ import namespace="System.ServiceModel.Description" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Xml" #>
+<#@ import namespace="System.Xml.Linq" #>
+<#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
+<#@ import namespace="CSGeneration" #>
+
+<#@ include file="class.tt" #>
+<#@ include file="method.tt" #>
+<#@ include file="property.tt" #>
+<#@ include file="field.tt" #>
+<#@ include file="namespace.tt" #>
+<#@ include file="attribute.tt" #>
+
+<# // Here we disable main output #>
+<# //\<#@ output extension="/" \#> #>
+
+<#
+List<ServiceToGen> servicesToGen = new List<ServiceToGen>();
+ServiceToGen service = new ServiceToGen("Service1.generated.cs", serviceUrlPath, "Services");
+servicesToGen.Add(service);
+
+OutputTemplateFileManager outputTemplateFileManager = new OutputTemplateFileManager(Host, GenerationEnvironment, true);
+outputTemplateFileManager.OutputPath = Path.GetDirectoryName(Host.TemplateFile);
+
+for (int i = 0; i < servicesToGen.Count; i = i+1)
+{	
+	ServiceToGen serviceToGen = servicesToGen[i];
+	
+	CSGeneration.WebService webService = new CSGeneration.WebService(serviceToGen.ServiceUrlPath);
+
+	CSGeneration.TemplateOperations.ClassSettings cs = CSMethod;
+	Func<string, string, CSTemplate> nsGen = NSMethod;
+	Action<string> write = WriteMethod;
+	Action<string> startFile = StartMethod(outputTemplateFileManager);
+	Action endFile = EndMethod(outputTemplateFileManager);
+	
+	TemplateOperations templateOperations = new TemplateOperations();
+	templateOperations.ClassGenerator = cs;
+	templateOperations.NamespaceGenerator = nsGen;
+	templateOperations.Write = write;
+	templateOperations.StartFile = startFile;
+	templateOperations.EndFile = endFile;		
+
+	CSGeneration.ServiceWriter serviceWriter = new CSGeneration.ServiceWriter(webService, templateOperations);
+	serviceWriter.WriteToOutput();
+}
+
+outputTemplateFileManager.Process(true);
+#>
+
+/*output5*/
+
+
+<#+	
+
+
+private class ServiceToGen
+{
+	public ServiceToGen(string outputFileName, string serviceUrlPath, string ns)
+	{
+		OutputFileName = outputFileName;
+		ServiceUrlPath = serviceUrlPath;
+		Namespace = ns;
+	}
+	
+	public string OutputFileName;
+	public string ServiceUrlPath;
+	public string Namespace;
+}
+
+public CSTemplate CSMethod(string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes)
+{
+	return new ClassWithMembers(className, members, baseTypes, attributes);
+}
+
+public CSTemplate NSMethod(string serviceName, string innerText)
+{
+	return new NamespaceTemplate(serviceName, innerText);
+}
+
+public void WriteMethod(string text)
+{
+	Write(text);
+}
+
+public Action<string> StartMethod(OutputTemplateFileManager manager)
+{
+	return manager.StartBlock;
+}
+
+public Action EndMethod(OutputTemplateFileManager manager)
+{
+	return manager.EndBlock;
+} 
+
+// T4 Template Block manager for handling multiple file outputs more easily.
+// Copyright (c) Microsoft Corporation.  All rights reserved.
+// This source code is made available under the terms of the Microsoft Public License (MS-PL)
+
+// Manager class records the various blocks so it can split them up
+public class OutputTemplateFileManager
+{
+    private struct Block
+    {
+        public String Name;
+        public int Start, Length;
+    }
+
+    private List<Block> blocks = new List<Block>();
+    private Block currentBlock;
+    private Block footerBlock = new Block();
+    private Block headerBlock = new Block();
+    private ITextTemplatingEngineHost host;
+    private ManagementStrategy strategy;
+    private StringBuilder template;
+    public String OutputPath;
+
+    public OutputTemplateFileManager(ITextTemplatingEngineHost host, StringBuilder template, bool commonHeader)
+    {
+        this.host = host;
+        this.template = template;
+        OutputPath = String.Empty;
+        strategy = ManagementStrategy.Create(host);
+    }
+
+    public void StartBlock(String name)
+    {
+        currentBlock = new Block();
+        currentBlock.Name = name;
+        currentBlock.Start = template.Length;
+    }
+
+    public void StartFooter()
+    {
+        footerBlock.Start = template.Length;
+    }
+
+    public void EndFooter()
+    {
+        footerBlock.Length = template.Length - footerBlock.Start;
+    }
+
+    public void StartHeader()
+    {
+        headerBlock.Start = template.Length;
+    }
+
+    public void EndHeader()
+    {
+        headerBlock.Length = template.Length - headerBlock.Start;
+    }
+
+    public void EndBlock()
+    {
+        currentBlock.Length = template.Length - currentBlock.Start;
+        blocks.Add(currentBlock);
+    }
+
+    public void Process(bool split)
+    {
+        String header = template.ToString(headerBlock.Start, headerBlock.Length);
+        String footer = template.ToString(footerBlock.Start, footerBlock.Length);
+        blocks.Reverse();
+        foreach (Block block in blocks)
+        {
+            String fileName = Path.Combine(OutputPath, block.Name);
+            if (split)
+            {
+                String content = header + template.ToString(block.Start, block.Length) + footer;
+                strategy.CreateFile(fileName, content);
+                template.Remove(block.Start, block.Length);
+            }
+            else
+            {
+                strategy.DeleteFile(fileName);
+            }
+        }
+    }
+}
+
+private class ManagementStrategy
+{
+    internal static ManagementStrategy Create(ITextTemplatingEngineHost host)
+    {
+        return (host is IServiceProvider) ? new VSManagementStrategy(host) : new ManagementStrategy(host);
+    }
+
+    internal ManagementStrategy(ITextTemplatingEngineHost host)
+    {
+    }
+
+    internal virtual void CreateFile(String fileName, String content)
+    {
+        File.WriteAllText(fileName, content);
+    }
+
+    internal virtual void DeleteFile(String fileName)
+    {
+        if (File.Exists(fileName))
+            File.Delete(fileName);
+    }
+}
+
+private class VSManagementStrategy : ManagementStrategy
+{
+    private EnvDTE.ProjectItem templateProjectItem;
+
+    internal VSManagementStrategy(ITextTemplatingEngineHost host)
+        : base(host)
+    {
+        IServiceProvider hostServiceProvider = (IServiceProvider) host;
+        if (hostServiceProvider == null)
+            throw new ArgumentNullException("Could not obtain hostServiceProvider");
+
+        EnvDTE.DTE dte = (EnvDTE.DTE) hostServiceProvider.GetService(typeof (EnvDTE.DTE));
+        if (dte == null)
+            throw new ArgumentNullException("Could not obtain DTE from host");
+
+        templateProjectItem = dte.Solution.FindProjectItem(host.TemplateFile);
+    }
+
+    internal override void CreateFile(String fileName, String content)
+    {
+        base.CreateFile(fileName, content);
+        ((EventHandler) delegate { templateProjectItem.ProjectItems.AddFromFile(fileName); }).BeginInvoke(null,
+                                                                                                            null,
+                                                                                                            null,
+                                                                                                            null);
+    }
+
+    private void FindAndDeleteFile(String fileName)
+    {
+        foreach (EnvDTE.ProjectItem projectItem in templateProjectItem.ProjectItems)
+        {
+            if (projectItem.get_FileNames(0) == fileName)
+            {
+                projectItem.Delete();
+                return;
+            }
+        }
+    }
+}
+
+#>
+
+

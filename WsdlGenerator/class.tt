@@ -1,0 +1,122 @@
+﻿<#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
+<#@ import namespace="CSGeneration" #>
+
+<#+
+class ClassTemplate : TextTransformation, CSTemplate
+{
+	private string className;
+	private IList<string> baseTypes;
+	private IList<AttributeDescription> attributes;
+
+	public ClassTemplate(string className, IList<string> baseTypes, IList<AttributeDescription> attributes)
+	{
+		this.className = className;
+		this.baseTypes = baseTypes;
+		this.attributes = attributes;
+	}
+
+	protected virtual void WriteMembers()
+	{
+	}
+
+	protected virtual void WriteAttributes()
+	{
+		if (attributes == null || attributes.Count == 0)
+		{
+			return;
+		}
+
+		foreach (AttributeDescription attribute in attributes)
+		{
+			#>
+[<#= attribute.Name #>(<#= attribute.FormattedArgs() #>)]
+<#+
+		}
+	}
+
+	public override string TransformText()
+	{
+		WriteAttributes();
+	#>
+public class <#= className #><#+
+	if (baseTypes != null && baseTypes.Count != 0)
+	{
+		string[] str = new string[baseTypes.Count];
+		baseTypes.CopyTo(str, 0);
+		Write(" : " + string.Join(", ", str));
+	}
+#>
+
+{
+<#+
+	PushIndent("    ");
+#>
+<#+WriteMembers();#><#+PopIndent();#>
+}<#+
+		return GenerationEnvironment.ToString();
+	}
+}
+
+class ClassWithMembers : ClassTemplate
+{
+	private IList<MemberDescription> members;
+	private bool gapsBetweenMembers = true;
+
+	public ClassWithMembers(string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes) : base(className, baseTypes, attributes)
+	{
+		this.members = members;
+	}
+	
+	private IList<MemberDescription> specificMember(MemberDescription.MemberTypeValues memberType)
+	{
+		List<MemberDescription> specMembers = new List<MemberDescription>();
+		foreach (MemberDescription md in this.members)
+		{
+			if (md.MemberType == memberType)
+			{
+				specMembers.Add(md);
+			}
+		}
+		
+		return specMembers;
+	}
+	
+	protected override void WriteMembers()
+	{
+		if (members.Count == 0)
+			return;
+			
+		IList<MemberDescription> fields = specificMember(MemberDescription.MemberTypeValues.Field);
+		IList<MemberDescription> properties = specificMember(MemberDescription.MemberTypeValues.Property);
+		IList<MemberDescription> methods = specificMember(MemberDescription.MemberTypeValues.Method);
+
+		MemberDescription lastMember = members[members.Count-1];
+
+		foreach (MemberDescription field in fields)
+		{
+			writeMember(new FieldTemplate(field.Name, field.Type), field == lastMember);
+		}
+
+		foreach (MemberDescription method in methods)
+		{
+			writeMember(new MethodTemplate(method.Name, method.Type), method == lastMember);
+		}
+
+		foreach (MemberDescription property in properties)
+		{
+			writeMember(new PropertyTemplate(property.Name, property.Type, property.ReferenceField, property.Attributes), property == lastMember);
+		}
+	}
+
+	private void writeMember(CSTemplate memberTemplate, bool isLastMember)
+	{
+		Write(memberTemplate.TransformText());
+
+		if (gapsBetweenMembers && (!isLastMember))
+		{
+			WriteLine("");
+		}
+	}
+}
+
+#>

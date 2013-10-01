@@ -1,0 +1,48 @@
+﻿<#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
+<#+
+class FieldTemplate : TextTransformation, CSTemplate
+{
+	private string fieldName;
+	private string returnType;
+
+	public FieldTemplate(string fieldName, string returnType)
+	{
+		this.fieldName = fieldName;
+		this.returnType = returnType;
+	}
+
+	protected virtual void WriteBody()
+	{
+		#>
+get
+{
+	return this.<#= this.fieldName #>Field;
+}
+set
+{
+	this.<#= this.fieldName #>Field = value;
+}<#+
+	}
+
+	protected virtual void WriteAttributes()
+	{
+	}
+
+	protected virtual void WriteComments()
+	{
+	}
+
+	public override string TransformText()
+	{
+#>
+<#+
+	WriteComments();
+	WriteAttributes();
+#>
+private <#= returnType #> <#= fieldName #>;
+<#+
+		return GenerationEnvironment.ToString();
+	}
+}
+
+#>

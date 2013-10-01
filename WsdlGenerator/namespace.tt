@@ -1,0 +1,28 @@
+﻿<#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
+<#+
+class NamespaceTemplate: TextTransformation, CSTemplate
+{
+	private string namespaceName;
+	private string innerStr;
+
+	public NamespaceTemplate(string namespaceName, string innerStr)
+	{
+		this.namespaceName = namespaceName;
+		this.innerStr = innerStr;
+	}
+
+	public override string TransformText()
+	{
+#>
+namespace <#= namespaceName #>
+{
+<#+
+	PushIndent("    ");
+#>
+<#= innerStr #>
+<#+PopIndent();#>
+}<#+
+		return GenerationEnvironment.ToString();
+	}
+}
+#>

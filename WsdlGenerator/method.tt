@@ -1,0 +1,64 @@
+﻿<#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
+<#+
+class MethodTemplate : TextTransformation, CSTemplate
+{
+	private string methodName;
+	private string typeName;
+	private string parameters;
+
+	public MethodTemplate(string methodName, string typeName)
+	{
+		this.methodName = methodName;
+		this.typeName = typeName;
+		parameters = string.Empty;
+	}
+
+	public MethodTemplate(string methodName, string typeName, IList<KeyValuePair<Type, string>> parameters)
+	{
+		this.methodName = methodName;
+		this.typeName = typeName;
+		this.parameters = string.Empty;
+
+		foreach (KeyValuePair<Type, string> pair in parameters)
+		{
+			this.parameters += pair.Key + " " + pair.Value + ", ";
+		}
+
+		//this.parameters = this.parameters.TrimRight(", ");
+	}
+
+	protected virtual void WriteBody()
+	{
+		#>return null;<#+
+	}
+
+	protected virtual void WriteAttributes()
+	{
+	}
+
+	protected virtual void WriteComments()
+	{
+	}
+
+	public override string TransformText()
+	{
+#>
+<#+
+	WriteComments();
+	WriteAttributes();
+#>
+public virtual <#= typeName #> <#= methodName #>(<#= parameters #>)
+{
+<#+
+	PushIndent("    ");
+	WriteBody();
+	PopIndent();
+#>
+
+}
+<#+
+		return GenerationEnvironment.ToString();
+	}
+}
+
+#>
