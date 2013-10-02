@@ -51,7 +51,8 @@ class MethodTemplate : TextTransformation, CSTemplate
 		if (string.IsNullOrEmpty(member.Body))
 			return;
 			
-		#><#= member.Body #><#+		
+		#><#= member.Body #>
+<#+		
 	}
 
 	protected virtual void WriteAttributes()

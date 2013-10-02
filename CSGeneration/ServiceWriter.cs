@@ -20,22 +20,6 @@ namespace CSGeneration
         private bool generateServiceContract = true;
         private DataContractWriter dataContractWriter;
 
-        private static readonly AttributeDescription generatedCodeAttribute =
-            new AttributeDescription()
-                {
-                    Name =
-                        "System.CodeDom.Compiler.GeneratedCodeAttribute",
-                    Arguments = new[]
-                                    {
-                                        new ArgumentDescription()
-                                            {
-                                                Value = "\"System.ServiceModel\""
-                                            },
-                                        new ArgumentDescription()
-                                            {Value = "\"4.0.0.0\""},
-                                    }
-                };
-
         public ServiceWriter(WebService service, TemplateOperations templateOperations)
         {            
             this.service = service;
@@ -48,57 +32,29 @@ namespace CSGeneration
 
         public void WriteToOutput()
         {
-            debug("Endpoints: " + service.AllEndpoints.Count);
-            foreach (var endpoint in service.AllEndpoints)
+            try
             {
-                debug("Endpoint:" + endpoint.Name);                
-            }
+                var schemaImporter = new XmlTypeExtractor(service.AllWsdlDocuments[0].Types.Schemas, debug);
+                schemaImporter.ImportDataContracts();
 
-            foreach (var binding in service.AllBindings)
-            {
-                debug("Binding: " + binding.Name);
-                debug("namespaceUri: " + binding.Namespace);
+                generateDataContracts(schemaImporter);
 
-                var bindingElems = binding.CreateBindingElements();
-                debug("Binding Elems: " + bindingElems.Count);
-
-                foreach (var bindingElem in bindingElems)
+                foreach (var contract in service.AllContracts)
                 {
-                    debug("binding type: " + bindingElem.GetType().Name);
+                    if (generateServiceContract)
+                    {
+                        outputDebugInfoForContract(contract);
+
+                        createServiceInterface(contract.Name, contract.Operations, schemaImporter);
+                        createServiceChannel(contract.Name);
+                        createServiceClient(contract.Name, contract.Operations, schemaImporter);
+                    }
                 }
             }
-
-            //debug("WsdlDocTypeSchemas: " + service.AllWsdlDocuments[0].Types.Schemas.Count);
-            var schemaImporter = new XmlTypeExtractor(service.AllWsdlDocuments[0].Types.Schemas, debug);
-            schemaImporter.ImportDataContracts();
-
-            generateDataContracts(schemaImporter);
-
-            foreach (var contract in service.AllContracts)
+            finally
             {
-                if (generateServiceContract)
-                {
-                    outputDebugInfoForContract(contract);
-
-                    // Create service interface
-                    createServiceInterface(contract.Name, contract.Operations, schemaImporter);
-
-                    // Create service Channel
-                    createServiceChannel(contract.Name);
-
-                    createServiceClient(contract.Name, contract.Operations, schemaImporter);
-
-                    templateOperations.StartFile(contract.Name + ".generated.cs");
-
-                    //var classGenerator = templateOperations.ClassGenerator(contract.Name, contract.Operations.Select(_ => operationMembers(_)), null);
-
-                    //templateOperations.Write(templateOperations.NamespaceGenerator("Service", classGenerator.TransformText()).TransformText());
-
-                    templateOperations.EndFile();
-                }
+                templateOperations.DebugFlush();
             }
-
-            templateOperations.DebugFlush();            
         }
 
         private void createServiceClient(string name, OperationDescriptionCollection operations, XmlTypeExtractor schemaImporter)
@@ -151,7 +107,7 @@ namespace CSGeneration
                 baseTypes,
                 new[]
                     {
-                        generatedCodeAttribute,
+                        Attributes.GeneratedCodeAttribute,
                     },
                 false);
             templateOperations.CreateFile(className, classGenerator.TransformText());
@@ -160,27 +116,14 @@ namespace CSGeneration
         private void createServiceInterface(string name, OperationDescriptionCollection operations, XmlTypeExtractor schemaImporter)
         {
             var members = operations.Select(_ => operationMember(_, schemaImporter)).ToList();
-            var serviceContractAttribute = new AttributeDescription()
-                                               {
-                                                   Name = "System.ServiceModel.ServiceContractAttribute",
-                                                   Arguments = new[]
-                                                                   {
-                                                                       new ArgumentDescription()
-                                                                           {
-                                                                               Name = "ConfigurationName", 
-                                                                               Value = string.Format("\"{0}\"", name)
-                                                                           },
-                                                                   }
-                                               };
             var classGenerator = templateOperations.ClassGenerator(
                 name,
                 members,
                 null,
                 new[]
                     {
-                        generatedCodeAttribute,
-                        serviceContractAttribute
-                        ,
+                        Attributes.GeneratedCodeAttribute,
+                        Attributes.ServiceContractAttribute(name),
                     },
                 true);
             templateOperations.CreateFile(name, classGenerator.TransformText());
@@ -195,7 +138,7 @@ namespace CSGeneration
                                                   new[] {serviceInterfaceName, "System.ServiceModel.IClientChannel"},
                                                   new[]
                                                       {
-                                                          generatedCodeAttribute,
+                                                          Attributes.GeneratedCodeAttribute,
                                                       }, true);            
 
             templateOperations.CreateFile(className, classGenerator.TransformText());
@@ -206,6 +149,7 @@ namespace CSGeneration
             templateOperations.Debug("Complex Types: " + schemaImporter.ComplexTypes.Count);
             foreach (var complexType in schemaImporter.ComplexTypes)
             {
+                debug("Writing Complex Type: " + complexType.Key + " " + complexType.Value.Name);
                 dataContractWriter.OutputComplexType(complexType.Key, complexType.Value);
             }
         }
@@ -236,25 +180,7 @@ namespace CSGeneration
 
             var args = getArguments(schemaImporter, argsMessage);
 
-            var attributeDescription =
-                new AttributeDescription()
-                    {
-                        Name = "System.ServiceModel.OperationContractAttribute",
-                        Arguments = new[]
-                                        {
-                                            new ArgumentDescription()
-                                                {
-                                                    Name = "Action",
-                                                    Value = string.Format("\"{0}\"", action),
-                                                },
-                                            new ArgumentDescription()
-                                                {
-                                                    Name = "ReplyAction",
-                                                    Value = string.Format("\"{0}\"", replyAction),
-                                                },
-                                        }
-                    };
-            var memberDescription = MemberDescription.Method(operationDescription.Name, returnType, args, new []{attributeDescription}, MemberDescription.MethodScopeValues.None, false, false);
+            var memberDescription = MemberDescription.Method(operationDescription.Name, returnType, args, new []{Attributes.OperationContractAttribute(replyAction, action)}, MemberDescription.MethodScopeValues.None, false, false);
             
             return memberDescription;            
         }
@@ -283,6 +209,9 @@ namespace CSGeneration
             if (returnMessage.Direction != MessageDirection.Output)
                 throw new InvalidOperationException("Why is this not output");
 
+            debug("Return Message Wrapper: " + returnMessage.Body.WrapperName + " " +
+                  returnMessage.Body.WrapperNamespace);
+            
             var existingElement = getExistingElement(schemaImporter, returnMessage);
 
             if (existingElement.Value.Properties.Count > 1)
@@ -295,16 +224,19 @@ namespace CSGeneration
             }
             else if (existingElement.Value.Properties.Any())
             {
+                debug("Found return property");
                 var complexTypeProperty = existingElement.Value.Properties.Single();
 
                 returnType = complexTypeProperty.ComplexType ??
                              XsdTypeEvaluator.GetAlias(complexTypeProperty.Type, debug);
             }
+
+            debug("return type is: " + returnType);
             return returnType;
         }
 
         private static KeyValuePair<string, ComplexType> getExistingElement(XmlTypeExtractor schemaImporter, MessageDescription message)
-        {
+        {            
             Func<KeyValuePair<string, ComplexType>, bool> existingElementPredicate =
                 _ => _.Key == message.Body.WrapperNamespace && _.Value.Name == message.Body.WrapperName;
             if (!schemaImporter.Elements.Any(existingElementPredicate))

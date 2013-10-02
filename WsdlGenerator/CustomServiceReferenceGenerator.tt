@@ -1,20 +1,14 @@
 ﻿<#@ template language="C#" debug="True" hostspecific="True" #>
-
-<# string serviceUrlPath = "http://localhost:28466/Service1.svc?singleWsdl"; 
+<# 
+string serviceUrlPath = "http://localhost:28466/Service1.svc?wsdl"; 
 string tab = "    ";
 #>
-
 <#@ assembly name="EnvDTE" #>
-
 <#@ assembly name="C:\Windows\Microsoft.NET\Framework\v2.0.50727\System.Xml.dll" #>
-
 <#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0\System.Runtime.Serialization.dll" #>
 <#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0\System.ServiceModel.dll" #>
 <#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5\System.Xml.Linq.dll" #>
-<#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5\System.Core.dll" #>
-
-<#@ VolatileAssembly processor="T4Toolbox.VolatileAssemblyProcessor" name="CSGeneration.dll" #>
-
+<#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5\System.Core.dll" #><#@ VolatileAssembly processor="T4Toolbox.VolatileAssemblyProcessor" name="CSGeneration.dll" #>
 <#@ import namespace="System" #>
 <#@ import namespace="System.CodeDom.Compiler" #>
 <#@ import namespace="System.Collections.ObjectModel" #>
@@ -29,19 +23,17 @@ string tab = "    ";
 <#@ import namespace="System.Xml" #>
 <#@ import namespace="System.Xml.Linq" #>
 <#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
-<#@ import namespace="CSGeneration" #>
+<#@ import namespace="CSGeneration" #><#@ 
+include file="class.tt" #><#@ 
+include file="method.tt" #><#@ 
+include file="property.tt" #><#@ 
+include file="field.tt" #><#@ 
+include file="namespace.tt" #><#@ 
+include file="attribute.tt" #><# 
 
-<#@ include file="class.tt" #>
-<#@ include file="method.tt" #>
-<#@ include file="property.tt" #>
-<#@ include file="field.tt" #>
-<#@ include file="namespace.tt" #>
-<#@ include file="attribute.tt" #>
+// Here we can disable main output #>
+<# //\<#@ output extension="/" \#> #><#
 
-<# // Here we disable main output #>
-<# //\<#@ output extension="/" \#> #>
-
-<#
 List<ServiceToGen> servicesToGen = new List<ServiceToGen>();
 ServiceToGen service = new ServiceToGen("Service1.generated.cs", serviceUrlPath, "Services");
 servicesToGen.Add(service);
@@ -69,9 +61,7 @@ foreach (ServiceToGen serviceToGen in servicesToGen)
 }
 
 outputTemplateFileManager.Process(true);
-#>
-
-<#+	
+#><#+	
 
 
 private class ServiceToGen
@@ -238,5 +228,3 @@ private class VSManagementStrategy : ManagementStrategy
 }
 
 #>
-
-

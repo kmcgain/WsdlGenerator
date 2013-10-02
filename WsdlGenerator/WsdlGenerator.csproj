@@ -58,6 +58,9 @@
     <Compile Include="CompositeType.generated.cs">
       <DependentUpon>CustomServiceReferenceGenerator.tt</DependentUpon>
     </Compile>
+    <Compile Include="CompType2.generated.cs">
+      <DependentUpon>CustomServiceReferenceGenerator.tt</DependentUpon>
+    </Compile>
     <Compile Include="CustomServiceReferenceGenerator.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>

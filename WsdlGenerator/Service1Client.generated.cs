@@ -26,11 +26,13 @@ public class Service1Client : System.ServiceModel.ClientBase<IService1>, IServic
     {
     }
 
-    public string GetData(int value)
+    public string GetData(int value, int value2, WcfService.CompType2 comp)
     {
-        return base.Channel.GetData(value);}
+        return base.Channel.GetData(value, value2, comp);
+    }
 
     public WcfService.CompositeType GetDataUsingDataContract(WcfService.CompositeType composite)
     {
-        return base.Channel.GetDataUsingDataContract(composite);}
+        return base.Channel.GetDataUsingDataContract(composite);
+    }
 }

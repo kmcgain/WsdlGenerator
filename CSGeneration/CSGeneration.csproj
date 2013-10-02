@@ -55,6 +55,7 @@
   <ItemGroup>
     <Compile Include="ArgumentDescription.cs" />
     <Compile Include="AttributeDescription.cs" />
+    <Compile Include="Attributes.cs" />
     <Compile Include="ComplexType.cs" />
     <Compile Include="CSTemplate.cs" />
     <Compile Include="DataContractWriter.cs" />
