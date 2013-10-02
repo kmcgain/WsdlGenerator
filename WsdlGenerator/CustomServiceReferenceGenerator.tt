@@ -49,34 +49,27 @@ servicesToGen.Add(service);
 OutputTemplateFileManager outputTemplateFileManager = new OutputTemplateFileManager(Host, GenerationEnvironment, true);
 outputTemplateFileManager.OutputPath = Path.GetDirectoryName(Host.TemplateFile);
 
-for (int i = 0; i < servicesToGen.Count; i = i+1)
-{	
-	ServiceToGen serviceToGen = servicesToGen[i];
+TemplateOperations templateOperations = new TemplateOperations();
+templateOperations.ClassGenerator = delegate(string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes, bool isInterface) 
+	{
+		return new ClassWithMembers(className, members, baseTypes, attributes, isInterface);
+	};
 	
-	CSGeneration.WebService webService = new CSGeneration.WebService(serviceToGen.ServiceUrlPath);
+templateOperations.NamespaceGenerator = delegate(string serviceName, string innerText) { return new NamespaceTemplate(serviceName, innerText); };
+templateOperations.Write = delegate(string text) {Write(text);};
+templateOperations.StartFile = delegate(string fileName) { outputTemplateFileManager.StartBlock(fileName); };
+templateOperations.EndFile = delegate() { outputTemplateFileManager.EndBlock(); };	
 
-	CSGeneration.TemplateOperations.ClassSettings cs = CSMethod;
-	Func<string, string, CSTemplate> nsGen = NSMethod;
-	Action<string> write = WriteMethod;
-	Action<string> startFile = StartMethod(outputTemplateFileManager);
-	Action endFile = EndMethod(outputTemplateFileManager);
+foreach (ServiceToGen serviceToGen in servicesToGen)
+{
+	CSGeneration.WebService webService = new CSGeneration.WebService(serviceToGen.ServiceUrlPath);			
 	
-	TemplateOperations templateOperations = new TemplateOperations();
-	templateOperations.ClassGenerator = cs;
-	templateOperations.NamespaceGenerator = nsGen;
-	templateOperations.Write = write;
-	templateOperations.StartFile = startFile;
-	templateOperations.EndFile = endFile;		
-
 	CSGeneration.ServiceWriter serviceWriter = new CSGeneration.ServiceWriter(webService, templateOperations);
 	serviceWriter.WriteToOutput();
 }
 
 outputTemplateFileManager.Process(true);
 #>
-
-/*output5*/
-
 
 <#+	
 
@@ -95,30 +88,6 @@ private class ServiceToGen
 	public string Namespace;
 }
 
-public CSTemplate CSMethod(string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes, bool isInterface)
-{
-	return new ClassWithMembers(className, members, baseTypes, attributes, isInterface);
-}
-
-public CSTemplate NSMethod(string serviceName, string innerText)
-{
-	return new NamespaceTemplate(serviceName, innerText);
-}
-
-public void WriteMethod(string text)
-{
-	Write(text);
-}
-
-public Action<string> StartMethod(OutputTemplateFileManager manager)
-{
-	return manager.StartBlock;
-}
-
-public Action EndMethod(OutputTemplateFileManager manager)
-{
-	return manager.EndBlock;
-} 
 
 // T4 Template Block manager for handling multiple file outputs more easily.
 // Copyright (c) Microsoft Corporation.  All rights reserved.

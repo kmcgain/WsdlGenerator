@@ -5,6 +5,7 @@ namespace WcfService
     [System.Runtime.Serialization.DataContractAttribute(Name="CompositeType", Namespace="http://schemas.datacontract.org/2004/07/WcfService")]
     public class CompositeType : object, System.Runtime.Serialization.IExtensibleDataObject
     {
+    
         private System.Runtime.Serialization.ExtensionDataObject extensionDataField;
     
         private bool BoolValueField;

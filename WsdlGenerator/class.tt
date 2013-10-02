@@ -87,6 +87,7 @@ class ClassWithMembers : ClassTemplate
 	{
 		if (members == null || members.Count == 0)
 			return;
+		WriteLine("");
 			
 		IList<MemberDescription> fields = specificMember(MemberDescription.MemberTypeValues.Field);
 		IList<MemberDescription> properties = specificMember(MemberDescription.MemberTypeValues.Property);
@@ -101,7 +102,7 @@ class ClassWithMembers : ClassTemplate
 
 		foreach (MemberDescription method in methods)
 		{
-			writeMember(new MethodTemplate(method.Name, method.Type), method == lastMember);
+			writeMember(new MethodTemplate(method), method == lastMember);
 		}
 
 		foreach (MemberDescription property in properties)

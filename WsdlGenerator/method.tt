@@ -2,38 +2,67 @@
 <#+
 class MethodTemplate : TextTransformation, CSTemplate
 {
-	private string methodName;
-	private string typeName;
+	private MemberDescription member;
 	private string parameters;
+	private string baseParameters;
 
-	public MethodTemplate(string methodName, string typeName)
+	public MethodTemplate(MemberDescription memberDescription)
 	{
-		this.methodName = methodName;
-		this.typeName = typeName;
-		parameters = string.Empty;
-	}
-
-	public MethodTemplate(string methodName, string typeName, IList<KeyValuePair<Type, string>> parameters)
-	{
-		this.methodName = methodName;
-		this.typeName = typeName;
+		this.member = memberDescription;
 		this.parameters = string.Empty;
-
-		foreach (KeyValuePair<Type, string> pair in parameters)
+		this.baseParameters = string.Empty;
+		
+		setParameters();
+		setBaseParameters();
+	}
+	
+	private void setBaseParameters()
+	{
+		if (member.BaseCallArgs == null || member.BaseCallArgs.Count == 0)
 		{
-			this.parameters += pair.Key + " " + pair.Value + ", ";
+			return;
 		}
-
-		//this.parameters = this.parameters.TrimRight(", ");
+		
+		ArgumentDescription lastArg = member.BaseCallArgs[member.BaseCallArgs.Count-1];
+		foreach (ArgumentDescription argument in member.BaseCallArgs)
+		{
+			this.baseParameters += argument.ToString(); 
+			if (argument != lastArg)
+				this.baseParameters += ", ";
+		}
+	}
+	
+	private void setParameters()
+	{
+		if (member.Arguments == null || member.Arguments.Count == 0)
+			return;
+			
+		MemberDescription.ArgumentDefinition lastArg = member.Arguments[member.Arguments.Count-1];
+		foreach (MemberDescription.ArgumentDefinition argument in member.Arguments)
+		{
+			this.parameters += argument.Type + " " + argument.Name; 
+			if (argument != lastArg)
+				this.parameters += ", ";
+		}
 	}
 
 	protected virtual void WriteBody()
 	{
-		#>return null;<#+
+		if (string.IsNullOrEmpty(member.Body))
+			return;
+			
+		#><#= member.Body #><#+		
 	}
 
 	protected virtual void WriteAttributes()
 	{
+		if (member.Attributes == null || member.Attributes.Count == 0)
+			return;
+
+		foreach (AttributeDescription attribute in member.Attributes)
+		{
+			Write(new AttributeTemplate(attribute.Name, attribute.Arguments).TransformText());
+		}
 	}
 
 	protected virtual void WriteComments()
@@ -47,16 +76,31 @@ class MethodTemplate : TextTransformation, CSTemplate
 	WriteComments();
 	WriteAttributes();
 #>
-public virtual <#= typeName #> <#= methodName #>(<#= parameters #>)
+<#= member.Scope == MemberDescription.MethodScopeValues.None ? string.Empty : member.Scope.ToString("G").ToLower() + " " 
+#><#=  member.IsVirtual ? "virtual " : string.Empty 
+#><#= member.Type == null ? string.Empty : member.Type + " " #><#= member.Name #>(<#= parameters #>)<#+ 
+if (!member.HasBody) 
+{ 
+	Write(";\n"); 
+} 
+else 
+{#>
+<#+
+	if (member.HasBaseCall)
+	{
+		Write(string.Format(" :\n\t\t\tbase({0})", baseParameters));
+	}
+#>
+
 {
 <#+
 	PushIndent("    ");
 	WriteBody();
 	PopIndent();
 #>
-
 }
 <#+
+		}// END Else
 		return GenerationEnvironment.ToString();
 	}
 }

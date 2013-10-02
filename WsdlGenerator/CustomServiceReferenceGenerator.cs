@@ -48,27 +48,27 @@ value:System.Int32
 Elem: GetDataResponse
 GetDataResult:System.String
 Elem: GetDataUsingDataContract
-:
+composite:
 Elem: GetDataUsingDataContractResponse
-:
+GetDataUsingDataContractResult:
 Elements Found: 4
 Elem: GetData
 value:System.Int32
 Elem: GetDataResponse
 GetDataResult:System.String
 Elem: GetDataUsingDataContract
-:
+composite:
 Elem: GetDataUsingDataContractResponse
-:
+GetDataUsingDataContractResult:
 Elements Found: 4
 Elem: GetData
 value:System.Int32
 Elem: GetDataResponse
 GetDataResult:System.String
 Elem: GetDataUsingDataContract
-:
+composite:
 Elem: GetDataUsingDataContractResponse
-:
+GetDataUsingDataContractResult:
 Complex Types: 1
 Behaviours: 0
 Operations: 2
@@ -158,9 +158,40 @@ Messages: System.ServiceModel.Description.MessageDescriptionCollection
 Name: GetDataUsingDataContract
 
 GetDataUsingDataContract returns
+Operation Description
+Behaviors: System.Collections.Generic.KeyedByTypeCollection`1[System.ServiceModel.Description.IOperationBehavior]
+SyncMethod
+BeginMethod
+ProtectionLevel: None
+HasProtectionLevel: False
+EndMethod
+DeclaringContract: System.ServiceModel.Description.ContractDescription
+Faults: System.ServiceModel.Description.FaultDescriptionCollection
+IsOneWay: False
+IsInitiating: True
+IsTerminating: False
+KnownTypes: System.Collections.ObjectModel.Collection`1[System.Type]
+Messages: System.ServiceModel.Description.MessageDescriptionCollection
+Name: GetData
+
+GetData returns
+Operation Description
+Behaviors: System.Collections.Generic.KeyedByTypeCollection`1[System.ServiceModel.Description.IOperationBehavior]
+SyncMethod
+BeginMethod
+ProtectionLevel: None
+HasProtectionLevel: False
+EndMethod
+DeclaringContract: System.ServiceModel.Description.ContractDescription
+Faults: System.ServiceModel.Description.FaultDescriptionCollection
+IsOneWay: False
+IsInitiating: True
+IsTerminating: False
+KnownTypes: System.Collections.ObjectModel.Collection`1[System.Type]
+Messages: System.ServiceModel.Description.MessageDescriptionCollection
+Name: GetDataUsingDataContract
+
+GetDataUsingDataContract returns
 
 */
-
-/*output5*/
-
 

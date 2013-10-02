@@ -4,11 +4,22 @@ namespace CSGeneration
 {
     public class MemberDescription
     {
-        protected MemberDescription()
+        public enum MethodScopeValues
         {
+            Public,
+            Private,
+            Protected,
+            None,
         }
 
-        public static MemberDescription Method(string name, string returnType, IList<ArgumentDescription> arguments)
+        protected MemberDescription()
+        {
+            Scope = MethodScopeValues.Public;
+            Arguments = new List<ArgumentDefinition>();
+            IsVirtual = true;
+        }
+
+        public static MemberDescription Method(string name, string returnType, IList<ArgumentDefinition> arguments, IList<AttributeDescription> attributes, MethodScopeValues methodScope, bool isVirtual, bool hasBody)
         {
             var memberDescription = new MemberDescription()
                                         {
@@ -16,6 +27,10 @@ namespace CSGeneration
                                             Arguments = arguments,
                                             Name = name,
                                             Type = returnType,
+                                            Scope = methodScope,
+                                            IsVirtual = isVirtual,
+                                            Attributes = attributes,
+                                            HasBody = hasBody,
                                         };
 
             return memberDescription;
@@ -29,7 +44,7 @@ namespace CSGeneration
                            Name = name,
                            Type = type,
                            ReferenceField = referenceField,
-                           Attributes = attributes,
+                           Attributes = attributes,                           
                        };
         }
 
@@ -55,17 +70,47 @@ namespace CSGeneration
         public virtual string Name { get; protected set; }
 
         public virtual string Type { get; protected set; }
-        
+
         public virtual string ReferenceField { get; set; }
 
-        public virtual IList<AttributeDescription> Attributes { get; protected set; }
+        public virtual MethodScopeValues Scope { get; set; }
 
-        public virtual IList<ArgumentDescription> Arguments { get; protected set; }
+        public virtual bool IsVirtual { get; set; }
+        
+        public virtual bool HasBody { get; private set; }
 
-        public class ArgumentDescription
+        public virtual IList<AttributeDescription> Attributes { get; set; }
+
+        public virtual IList<ArgumentDefinition> Arguments { get; protected set; }
+
+        public virtual string Body { get; private set; }
+
+        public virtual bool HasBaseCall { get; private set; }
+
+        public class ArgumentDefinition
         {
             public string Name { get; set; }
             public string Type { get; set; }
         }
+
+        public virtual void SetBody(string body)
+        {            
+            Body = body;
+            HasBody = !string.IsNullOrEmpty(body);
+        }
+
+        public virtual void SetBaseCall(IList<ArgumentDescription> baseArgs)
+        {
+            HasBaseCall = baseArgs != null;
+
+            if (!HasBaseCall)
+            {
+                return;
+            }
+
+            BaseCallArgs = baseArgs;
+        }
+
+        public IList<ArgumentDescription> BaseCallArgs { get; private set; }
     }
 }

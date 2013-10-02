@@ -193,7 +193,8 @@ namespace CSGeneration
                         debug("Content Name: " + complexType.QualifiedName);
 
                         // TODO: Do we need tto match on name as well as namespace?
-                        var isExisting = ComplexTypes.Any(_ => _.Key == complexType.QualifiedName.Namespace);
+                        Func<KeyValuePair<string, ComplexType>, bool> existingCTPredicate = _ => _.Key == complexType.QualifiedName.Namespace && _.Value.Name == complexType.QualifiedName.Name;
+                        var isExisting = ComplexTypes.Any(existingCTPredicate);
                         debug("Looking up existing type with " + complexType.QualifiedName.Namespace + ":" +
                               complexType.QualifiedName.Name);
                         foreach (var ctype in ComplexTypes)
@@ -203,10 +204,10 @@ namespace CSGeneration
 
                         if (isExisting)
                         {
-                            var existingComplexType = ComplexTypes.Single(_ => _.Key == complexType.QualifiedName.Namespace);
+                            var existingComplexType = ComplexTypes.Single(existingCTPredicate);
                             debug("Found existing complex type " + existingComplexType.Value.Name);
 
-                            complexTypeBuilder.AddComplexType(null, existingComplexType.Value, existingComplexType.Key);
+                            complexTypeBuilder.AddComplexType(elem.Name, existingComplexType.Value, existingComplexType.Key);
                         }
                         else
                         {

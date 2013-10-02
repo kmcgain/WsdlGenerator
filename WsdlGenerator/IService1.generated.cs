@@ -1,13 +1,11 @@
 [System.CodeDom.Compiler.GeneratedCodeAttribute("System.ServiceModel", "4.0.0.0")]
+[System.ServiceModel.ServiceContractAttribute(ConfigurationName="IService1")]
 public interface IService1
 {
-    public virtual string GetData()
-    {
-        return null;
-    }
 
-    public virtual WcfService.CompositeType GetDataUsingDataContract()
-    {
-        return null;
-    }
+    [System.ServiceModel.OperationContractAttribute(Action="http://tempuri.org/IService1/GetData", ReplyAction="http://tempuri.org/IService1/GetDataResponse")]
+    string GetData(int value);
+
+    [System.ServiceModel.OperationContractAttribute(Action="http://tempuri.org/IService1/GetDataUsingDataContract", ReplyAction="http://tempuri.org/IService1/GetDataUsingDataContractResponse")]
+    WcfService.CompositeType GetDataUsingDataContract(WcfService.CompositeType composite);
 }

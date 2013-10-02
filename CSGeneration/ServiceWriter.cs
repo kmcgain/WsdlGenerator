@@ -86,12 +86,7 @@ namespace CSGeneration
                     // Create service Channel
                     createServiceChannel(contract.Name);
 
-                    // Create Service Client
-                    foreach (var operation in contract.Operations)
-                    {
-                        // Create 
-                    }
-
+                    createServiceClient(contract.Name, contract.Operations, schemaImporter);
 
                     templateOperations.StartFile(contract.Name + ".generated.cs");
 
@@ -106,13 +101,88 @@ namespace CSGeneration
             templateOperations.DebugFlush();            
         }
 
+        private void createServiceClient(string name, OperationDescriptionCollection operations, XmlTypeExtractor schemaImporter)
+        {
+            var interfaceMembers = operations.Select(_ => operationMember(_, schemaImporter)).ToList();
+            foreach (var memberDescription in interfaceMembers)
+            {
+                memberDescription.Attributes = new List<AttributeDescription>();
+                memberDescription.Scope = MemberDescription.MethodScopeValues.Public;
+                // TODO: Extract to template/make use of arguments properly
+                memberDescription.SetBody("return base.Channel." +
+                                          memberDescription.Name +
+                                          "(" +
+                                          string.Join(", ", memberDescription.Arguments.Select(_ => _.Name).ToArray()) +
+                                          ");");           
+            }
+            
+            var baseTypes = new[] {"System.ServiceModel.ClientBase<" + name + ">", name};
+            string className = name.Remove(0, 1) + "Client";
+
+            var members = new List<MemberDescription>();
+
+            var endpointConfigArg = new MemberDescription.ArgumentDefinition() {Name = "endpointConfigurationName", Type = "string",};
+            var remoteAddressArg = new MemberDescription.ArgumentDefinition() { Name = "remoteAddress", Type = "string", };
+            var remoteAddressStrongArg = new MemberDescription.ArgumentDefinition() { Name = "remoteAddress", Type = "System.ServiceModel.EndpointAddress", };
+            var bindingArg = new MemberDescription.ArgumentDefinition() { Name = "binding", Type = "System.ServiceModel.Channels.Binding", };
+            
+            members.Add(MemberDescription.Method(className, null, null, null,
+                                                 MemberDescription.MethodScopeValues.Public, false, true));
+            var constructor2 = MemberDescription.Method(className, null, new[] {endpointConfigArg,}, null, MemberDescription.MethodScopeValues.Public, false, true);
+            constructor2.SetBaseCall(new[] { new ArgumentDescription() { Value = "endpointConfigurationName" }, });
+            members.Add(constructor2);
+
+            var constructor3 = MemberDescription.Method(className, null, new[] {endpointConfigArg, remoteAddressArg}, null, MemberDescription.MethodScopeValues.Public, false, true);
+            constructor3.SetBaseCall(new[] { new ArgumentDescription() { Value = "endpointConfigurationName" }, new ArgumentDescription() {Value = "remoteAddress"}, });
+            members.Add(constructor3);
+            
+            var constructor4 = MemberDescription.Method(className, null, new[] {endpointConfigArg, remoteAddressStrongArg}, null, MemberDescription.MethodScopeValues.Public, false, true);
+            constructor4.SetBaseCall(new[] { new ArgumentDescription() { Value = "endpointConfigurationName" }, new ArgumentDescription() { Value = "remoteAddress" }, });
+            members.Add(constructor4);
+
+            var constructor5 = MemberDescription.Method(className, null, new[] {bindingArg, remoteAddressStrongArg}, null, MemberDescription.MethodScopeValues.Public, false, true);
+            constructor5.SetBaseCall(new[] { new ArgumentDescription() { Value = "binding" }, new ArgumentDescription() { Value = "remoteAddress" }, });
+            members.Add(constructor5);
+
+            members.AddRange(interfaceMembers);
+            var classGenerator = templateOperations.ClassGenerator(
+                className,
+                members,
+                baseTypes,
+                new[]
+                    {
+                        generatedCodeAttribute,
+                    },
+                false);
+            templateOperations.CreateFile(className, classGenerator.TransformText());
+        }
+
         private void createServiceInterface(string name, OperationDescriptionCollection operations, XmlTypeExtractor schemaImporter)
         {
             var members = operations.Select(_ => operationMember(_, schemaImporter)).ToList();
-            var classGenerator = templateOperations.ClassGenerator(name, members, null, new[]
-                                                                                         {
-                                                                                             generatedCodeAttribute,
-                                                                                         }, true);
+            var serviceContractAttribute = new AttributeDescription()
+                                               {
+                                                   Name = "System.ServiceModel.ServiceContractAttribute",
+                                                   Arguments = new[]
+                                                                   {
+                                                                       new ArgumentDescription()
+                                                                           {
+                                                                               Name = "ConfigurationName", 
+                                                                               Value = string.Format("\"{0}\"", name)
+                                                                           },
+                                                                   }
+                                               };
+            var classGenerator = templateOperations.ClassGenerator(
+                name,
+                members,
+                null,
+                new[]
+                    {
+                        generatedCodeAttribute,
+                        serviceContractAttribute
+                        ,
+                    },
+                true);
             templateOperations.CreateFile(name, classGenerator.TransformText());
         }
 
@@ -145,44 +215,104 @@ namespace CSGeneration
             debug("Operation Description");
             debug(DebugUtility.GetProperties(operationDescription));
 
+            if (operationDescription.Messages.Count > 2)
+            {
+                throw new NotImplementedException("We only expect 2 messages per operation. Args + return");
+            }
+
             var returnMessage = operationDescription.Messages.SingleOrDefault(_ => _.Body != null && _.Body.ReturnValue != null);
 
-            string replyAction = null;
-
+            string replyAction = null;            
             string returnType = "void";
             if (returnMessage != null)
             {
-                debug(operationDescription.Name + " returns");
-                if (returnMessage.Direction != MessageDirection.Output)
-                    throw new InvalidOperationException("Why is this not output");
-
-                Func<KeyValuePair<string, ComplexType>, bool> existingElementPredicate = _ => _.Key == returnMessage.Body.WrapperNamespace && _.Value.Name == returnMessage.Body.WrapperName;
-                if (!schemaImporter.Elements.Any(existingElementPredicate))
-                {
-                    throw new InvalidOperationException("Couldn't find the element definition");
-                }
-                var existingElement = schemaImporter.Elements.Single(existingElementPredicate);
-
-                if (existingElement.Value.Properties.Count > 1)
-                {
-                    foreach (var property in existingElement.Value.Properties)
-                    {
-                        debug("return property: " + DebugUtility.GetProperties(property));
-                    }
-                    //throw new InvalidOperationException("A return message should not have more than one property");
-                }
-                else if (existingElement.Value.Properties.Any())
-                {
-                    var complexTypeProperty = existingElement.Value.Properties.Single();
-                    
-                    returnType = complexTypeProperty.ComplexType ?? 
-                        XsdTypeEvaluator.GetAlias(complexTypeProperty.Type, debug);
-                }
+                replyAction = returnMessage.Action;
+                returnType = getReturnType(operationDescription, schemaImporter, returnMessage);
             }
-            
-            var memberDescription = MemberDescription.Method(operationDescription.Name, returnType, null);
+
+            // Get arguments
+            MessageDescription argsMessage = operationDescription.Messages.SingleOrDefault(_ => _.Body.ReturnValue == null);
+            var action = argsMessage.Action;
+
+            var args = getArguments(schemaImporter, argsMessage);
+
+            var attributeDescription =
+                new AttributeDescription()
+                    {
+                        Name = "System.ServiceModel.OperationContractAttribute",
+                        Arguments = new[]
+                                        {
+                                            new ArgumentDescription()
+                                                {
+                                                    Name = "Action",
+                                                    Value = string.Format("\"{0}\"", action),
+                                                },
+                                            new ArgumentDescription()
+                                                {
+                                                    Name = "ReplyAction",
+                                                    Value = string.Format("\"{0}\"", replyAction),
+                                                },
+                                        }
+                    };
+            var memberDescription = MemberDescription.Method(operationDescription.Name, returnType, args, new []{attributeDescription}, MemberDescription.MethodScopeValues.None, false, false);
             
             return memberDescription;            
+        }
+
+        private List<MemberDescription.ArgumentDefinition> getArguments(XmlTypeExtractor schemaImporter, MessageDescription argsMessage)
+        {
+            var args = new List<MemberDescription.ArgumentDefinition>();
+            var existingElement = getExistingElement(schemaImporter, argsMessage);
+            foreach (var property in existingElement.Value.Properties)
+            {
+                args.Add(new MemberDescription.ArgumentDefinition()
+                             {
+                                 Name = property.Name,
+                                 Type = property.ComplexType
+                                        ?? XsdTypeEvaluator.GetAlias(property.Type, debug),
+                             });
+            }
+            return args;
+        }
+
+        private string getReturnType(OperationDescription operationDescription, XmlTypeExtractor schemaImporter,
+                                     MessageDescription returnMessage)
+        {
+            string returnType = "void";
+            debug(operationDescription.Name + " returns");
+            if (returnMessage.Direction != MessageDirection.Output)
+                throw new InvalidOperationException("Why is this not output");
+
+            var existingElement = getExistingElement(schemaImporter, returnMessage);
+
+            if (existingElement.Value.Properties.Count > 1)
+            {
+                foreach (var property in existingElement.Value.Properties)
+                {
+                    debug("return property: " + DebugUtility.GetProperties(property));
+                }
+                throw new InvalidOperationException("A return message should not have more than one property");
+            }
+            else if (existingElement.Value.Properties.Any())
+            {
+                var complexTypeProperty = existingElement.Value.Properties.Single();
+
+                returnType = complexTypeProperty.ComplexType ??
+                             XsdTypeEvaluator.GetAlias(complexTypeProperty.Type, debug);
+            }
+            return returnType;
+        }
+
+        private static KeyValuePair<string, ComplexType> getExistingElement(XmlTypeExtractor schemaImporter, MessageDescription message)
+        {
+            Func<KeyValuePair<string, ComplexType>, bool> existingElementPredicate =
+                _ => _.Key == message.Body.WrapperNamespace && _.Value.Name == message.Body.WrapperName;
+            if (!schemaImporter.Elements.Any(existingElementPredicate))
+            {
+                throw new InvalidOperationException("Couldn't find the element definition");
+            }
+            var existingElement = schemaImporter.Elements.Single(existingElementPredicate);
+            return existingElement;
         }
 
         private void outputDebugInfoForContract(ContractDescription contract)
