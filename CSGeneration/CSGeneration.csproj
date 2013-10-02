@@ -59,6 +59,7 @@
     <Compile Include="DataContractWriter.cs" />
     <Compile Include="DebugUtility.cs" />
     <Compile Include="MemberDescription.cs" />
+    <Compile Include="NamespaceUtility.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ServiceGenerator.cs" />
     <Compile Include="ServiceWriter.cs" />

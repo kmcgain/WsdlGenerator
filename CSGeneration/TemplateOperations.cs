@@ -29,7 +29,7 @@ namespace CSGeneration
         public Action EndFile { get; set; }
 
         public delegate CSTemplate ClassSettings(
-            string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes);
+            string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes, bool isInterface);
 
         public ClassSettings ClassGenerator { get; set; }
 
@@ -40,6 +40,13 @@ namespace CSGeneration
         public void WriteLine(string content)
         {
             Write(content + "\n");
+        }
+
+        public void CreateFile(string name, string content)
+        {
+            StartFile(name + ".generated.cs");
+            Write(content);
+            EndFile();
         }
     }
 }

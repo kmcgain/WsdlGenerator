@@ -7,12 +7,14 @@ class ClassTemplate : TextTransformation, CSTemplate
 	private string className;
 	private IList<string> baseTypes;
 	private IList<AttributeDescription> attributes;
+	private bool isInterface;
 
-	public ClassTemplate(string className, IList<string> baseTypes, IList<AttributeDescription> attributes)
+	public ClassTemplate(string className, IList<string> baseTypes, IList<AttributeDescription> attributes, bool isInterface)
 	{
 		this.className = className;
 		this.baseTypes = baseTypes;
 		this.attributes = attributes;
+		this.isInterface = isInterface;
 	}
 
 	protected virtual void WriteMembers()
@@ -38,7 +40,7 @@ class ClassTemplate : TextTransformation, CSTemplate
 	{
 		WriteAttributes();
 	#>
-public class <#= className #><#+
+public <#= isInterface ? "interface" : "class" #> <#= className #><#+
 	if (baseTypes != null && baseTypes.Count != 0)
 	{
 		string[] str = new string[baseTypes.Count];
@@ -62,7 +64,7 @@ class ClassWithMembers : ClassTemplate
 	private IList<MemberDescription> members;
 	private bool gapsBetweenMembers = true;
 
-	public ClassWithMembers(string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes) : base(className, baseTypes, attributes)
+	public ClassWithMembers(string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes, bool isInterface) : base(className, baseTypes, attributes, isInterface)
 	{
 		this.members = members;
 	}
@@ -83,7 +85,7 @@ class ClassWithMembers : ClassTemplate
 	
 	protected override void WriteMembers()
 	{
-		if (members.Count == 0)
+		if (members == null || members.Count == 0)
 			return;
 			
 		IList<MemberDescription> fields = specificMember(MemberDescription.MemberTypeValues.Field);

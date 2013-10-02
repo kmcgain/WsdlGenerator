@@ -13,7 +13,7 @@ string tab = "    ";
 <#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5\System.Xml.Linq.dll" #>
 <#@ assembly name="C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5\System.Core.dll" #>
 
-<#@ assembly name="CSGeneration.dll" #>
+<#@ VolatileAssembly processor="T4Toolbox.VolatileAssemblyProcessor" name="CSGeneration.dll" #>
 
 <#@ import namespace="System" #>
 <#@ import namespace="System.CodeDom.Compiler" #>
@@ -95,9 +95,9 @@ private class ServiceToGen
 	public string Namespace;
 }
 
-public CSTemplate CSMethod(string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes)
+public CSTemplate CSMethod(string className, IList<MemberDescription> members, IList<string> baseTypes, IList<AttributeDescription> attributes, bool isInterface)
 {
-	return new ClassWithMembers(className, members, baseTypes, attributes);
+	return new ClassWithMembers(className, members, baseTypes, attributes, isInterface);
 }
 
 public CSTemplate NSMethod(string serviceName, string innerText)

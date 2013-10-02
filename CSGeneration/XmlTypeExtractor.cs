@@ -19,6 +19,7 @@ namespace CSGeneration
         private XmlSchemaSet schemaSet;
 
         public IList<KeyValuePair<string, ComplexType>> ComplexTypes { get; set; }
+        public IList<KeyValuePair<string, ComplexType>> Elements { get; set; }
 
         public XmlTypeExtractor(XmlSchemas schemas, Action<string> debug)
         {
@@ -27,19 +28,45 @@ namespace CSGeneration
             this.loadedSchemas = new List<string>();
             this.schemaSet = new XmlSchemaSet();        
             ComplexTypes = new List<KeyValuePair<string, ComplexType>>();
+            Elements = new List<KeyValuePair<string, ComplexType>>();
         }
 
         public void ImportDataContracts()
         {
-            debug("Importing data contracts");
+            debug("Importing data contracts: " + schemas.Count);
 
             foreach (XmlSchema schema in schemas)
             {
-                ProcessSchema(schema);
+                ExtractTypes(schema);
+            }
+
+            foreach (XmlSchema schema in schemas)
+            {
+                extractElements(schema);
+            }            
+        }
+
+        private void extractElements(XmlSchema schema)
+        {
+            var targetNamespaceUri = schema.TargetNamespace;
+
+            foreach (XmlSchemaElement element in schema.Elements.Values)
+            {
+                if (element.SchemaType is XmlSchemaComplexType)
+                {
+                    processComplexType(targetNamespaceUri, element.SchemaType as XmlSchemaComplexType, element.Name, Elements);
+                }
+            }
+
+            debug("Elements Found: " + Elements.Count);
+            foreach (var elems in Elements)
+            {
+                debug("Elem: " + elems.Value.Name);
+                debug(string.Join(", ", elems.Value.Properties.Select(_ => _.Name + ":" + _.Type).ToArray()));
             }
         }
 
-        private void ProcessSchema(XmlSchema schema)
+        private void ExtractTypes(XmlSchema schema)
         {
             this.AddTypes(schema);
             foreach (XmlSchemaObject entry in schema.Includes)
@@ -71,78 +98,23 @@ namespace CSGeneration
 
             if (import.Schema != null)
             {
-                this.ProcessSchema(import.Schema);
+                this.ExtractTypes(import.Schema);
             }
         }
 
-        void TraverseParticle(XmlSchemaParticle particle, ComplexTypeBuilder complexTypeBuilder)
+        public class ElementDescription
         {
-            if (particle is XmlSchemaElement)
+            public string Name { get; set; }
+
+            public string Namespace { get; set; }
+
+            public IList<ParameterDescription> Parameters { get; set; }
+
+            public class ParameterDescription
             {
-                XmlSchemaElement elem = particle as XmlSchemaElement;
+                public string Name { get; set; }
 
-                if (elem.RefName.IsEmpty)
-                {
-                    XmlSchemaComplexType complexType = elem.ElementSchemaType as XmlSchemaComplexType;
-                    if (complexType != null && complexType.Name == null)
-                    {
-                        TraverseParticle(complexType.ContentTypeParticle, complexTypeBuilder);
-                    }
-                    else
-                    {
-                        var xmlSchemaSimpleType = elem.ElementSchemaType as XmlSchemaSimpleType;                        
-
-                        if (xmlSchemaSimpleType.Datatype != null)
-                        {
-                            complexTypeBuilder.AddProperty(elem.Name, XsdTypeEvaluator.OverrideCLRType(xmlSchemaSimpleType.Datatype.ValueType, xmlSchemaSimpleType.QualifiedName.ToString()));                            
-                        }
-                        else
-                        {
-                            throw new NotImplementedException("Haven't implemented case of not having datatype");
-                        }
-                    }
-                }
-                else
-                {
-                    throw new NotImplementedException("Haven't dealt with filled refname");
-                }
-            }
-            else if (particle is XmlSchemaGroupBase)
-            {
-                //xs:all, xs:choice, xs:sequence
-                XmlSchemaGroupBase baseParticle = particle as XmlSchemaGroupBase;
-                foreach (XmlSchemaParticle subParticle in baseParticle.Items)
-                    TraverseParticle(subParticle, complexTypeBuilder);
-            }
-        }
-
-        private class ComplexTypeBuilder
-        {
-            private static ComplexType complexType;
-
-            private ComplexTypeBuilder(string name)
-            {
-                complexType = new ComplexType()
-                                  {
-                                      Name = name,
-                                  };
-            }
-
-            public static ComplexTypeBuilder Start(string name)
-            {
-                var builder = new ComplexTypeBuilder(name);
-                
-                return builder;
-            }
-
-            public virtual ComplexType Build()
-            {
-                return complexType;
-            }
-
-            public void AddProperty(string name, Type valueType)
-            {
-                complexType.Properties.Add(new ComplexType.ComplexTypeProperty() {Name = name, Type = valueType});
+                public string Type { get; set; }
             }
         }
 
@@ -150,18 +122,19 @@ namespace CSGeneration
         {
             var targetNamespaceUri = schema.TargetNamespace;
 
+            debug("Schema adding types: " + schema.SchemaTypes.Values.Count);
             foreach (var schemaType in schema.SchemaTypes.Values)
             {
-                // Here we are ignoring simple types assuming we don't need to import them
-                // We may need to cater for specific validation automatically.
-                var xmlSchemaComplexType = schemaType as XmlSchemaComplexType;
-                if (xmlSchemaComplexType == null) continue;
+                debug("SCHEMA Type: " + schemaType.GetType().Name);
 
-                var complexTypeBuilder = ComplexTypeBuilder.Start(xmlSchemaComplexType.Name);
-                TraverseParticle(xmlSchemaComplexType.ContentTypeParticle, complexTypeBuilder);
-                var complexType = complexTypeBuilder.Build();
-                ComplexTypes.Add(new KeyValuePair<string, ComplexType>(targetNamespaceUri, complexType));
+                if (schemaType is XmlSchemaComplexType)
+                {
+                    XmlSchemaComplexType schemaType1 = schemaType as XmlSchemaComplexType;
+                    processComplexType(targetNamespaceUri, schemaType1, schemaType1.Name, ComplexTypes);
+                }
             }
+
+            debug("Collected " + ComplexTypes.Count + " complex types");
 
             return;
 //
@@ -204,6 +177,115 @@ namespace CSGeneration
 //            w.Flush();
 //            ms.Position = 0;
 //            this.schemaSet.Add(XmlSchema.Read(ms, null));            
+        }
+
+        void TraverseParticle(XmlSchemaParticle particle, ComplexTypeBuilder complexTypeBuilder)
+        {
+            if (particle is XmlSchemaElement)
+            {
+                XmlSchemaElement elem = particle as XmlSchemaElement;
+
+                if (elem.RefName.IsEmpty)
+                {
+                    XmlSchemaComplexType complexType = elem.ElementSchemaType as XmlSchemaComplexType;
+                    if (complexType != null)
+                    {
+                        debug("Content Name: " + complexType.QualifiedName);
+
+                        // TODO: Do we need tto match on name as well as namespace?
+                        var isExisting = ComplexTypes.Any(_ => _.Key == complexType.QualifiedName.Namespace);
+                        debug("Looking up existing type with " + complexType.QualifiedName.Namespace + ":" +
+                              complexType.QualifiedName.Name);
+                        foreach (var ctype in ComplexTypes)
+                        {
+                            debug("Existing CT " + ctype.Key + ":" + ctype.Value.Name);
+                        }
+
+                        if (isExisting)
+                        {
+                            var existingComplexType = ComplexTypes.Single(_ => _.Key == complexType.QualifiedName.Namespace);
+                            debug("Found existing complex type " + existingComplexType.Value.Name);
+
+                            complexTypeBuilder.AddComplexType(null, existingComplexType.Value, existingComplexType.Key);
+                        }
+                        else
+                        {
+                            TraverseParticle(complexType.ContentTypeParticle, complexTypeBuilder);
+                        }
+                    }
+                    else
+                    {
+                        var xmlSchemaSimpleType = elem.ElementSchemaType as XmlSchemaSimpleType;                        
+
+                        if (xmlSchemaSimpleType != null && xmlSchemaSimpleType.Datatype != null)
+                        {
+                            complexTypeBuilder.AddProperty(elem.Name, XsdTypeEvaluator.OverrideCLRType(xmlSchemaSimpleType.Datatype.ValueType, xmlSchemaSimpleType.QualifiedName.ToString()));                            
+                        }
+                        else
+                        {
+                            throw new NotImplementedException("Haven't implemented case of not having datatype. " + elem.ElementSchemaType.GetType().Name);
+                        }
+                    }
+                }
+                else
+                {
+                    throw new NotImplementedException("Haven't dealt with filled refname");
+                }
+            }
+            else if (particle is XmlSchemaGroupBase)
+            {
+                //xs:all, xs:choice, xs:sequence
+                XmlSchemaGroupBase baseParticle = particle as XmlSchemaGroupBase;
+                foreach (XmlSchemaParticle subParticle in baseParticle.Items)
+                    TraverseParticle(subParticle, complexTypeBuilder);
+            }
+        }
+
+        private void processComplexType(string targetNamespaceUri, XmlSchemaComplexType schemaType, string name, IList<KeyValuePair<string, ComplexType>> typeBucket)
+        {
+            var complexTypeBuilder = ComplexTypeBuilder.Start(name);
+            TraverseParticle(schemaType.ContentTypeParticle, complexTypeBuilder);
+            var complexType = complexTypeBuilder.Build();
+            typeBucket.Add(new KeyValuePair<string, ComplexType>(targetNamespaceUri, complexType));
+        }
+
+        private class ComplexTypeBuilder
+        {
+            private static ComplexType complexType;
+
+            private ComplexTypeBuilder(string name)
+            {
+                complexType = new ComplexType()
+                                  {
+                                      Name = name,
+                                  };
+            }
+
+            public static ComplexTypeBuilder Start(string name)
+            {
+                var builder = new ComplexTypeBuilder(name);
+                
+                return builder;
+            }
+
+            public virtual ComplexType Build()
+            {
+                return complexType;
+            }
+
+            public ComplexTypeBuilder AddProperty(string name, Type valueType)
+            {
+                complexType.Properties.Add(new ComplexType.ComplexTypeProperty() {Name = name, Type = valueType});
+                return this;
+            }
+
+            public ComplexTypeBuilder AddComplexType(string name, ComplexType value, string namespaceUri)
+            {
+                var ns = NamespaceUtility.NamespaceName(namespaceUri);
+
+                complexType.Properties.Add(new ComplexType.ComplexTypeProperty() {Name = name, ComplexType = ns + "." + value.Name });
+                return this;
+            }
         }
     }
 }

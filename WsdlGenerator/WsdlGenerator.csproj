@@ -42,6 +42,9 @@
     <Reference Include="System.Runtime.Serialization">
       <RequiredTargetFramework>3.0</RequiredTargetFramework>
     </Reference>
+    <Reference Include="System.ServiceModel">
+      <RequiredTargetFramework>3.0</RequiredTargetFramework>
+    </Reference>
     <Reference Include="System.Xml.Linq">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
@@ -58,6 +61,12 @@
     <Compile Include="CustomServiceReferenceGenerator.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
+      <DependentUpon>CustomServiceReferenceGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="IService1.generated.cs">
+      <DependentUpon>CustomServiceReferenceGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="IService1Channel.generated.cs">
       <DependentUpon>CustomServiceReferenceGenerator.tt</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />

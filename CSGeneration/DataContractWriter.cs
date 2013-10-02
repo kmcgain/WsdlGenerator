@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Xml;
 
 namespace CSGeneration
@@ -62,15 +60,11 @@ namespace CSGeneration
 
             addMembersForType(node, members);
 
-            var nsSegments = namespaceUri.Split('/');
-            var namespaceName = String.IsNullOrEmpty(nsSegments.Last())
-                                    ? nsSegments[nsSegments.Length - 1]
-                                    : nsSegments.Last();
+            var namespaceName = NamespaceUtility.NamespaceName(namespaceUri);
 
             var baseTypes = new[] { "object", "System.Runtime.Serialization.IExtensibleDataObject" };
             var typeClass = templateOperations.ClassGenerator
-                (name, members, baseTypes,
-                 dataContractAttributes);
+                (name, members, baseTypes,dataContractAttributes,false);
 
             templateOperations.WriteLine(templateOperations.NamespaceGenerator(namespaceName, typeClass.TransformText()).TransformText());
 

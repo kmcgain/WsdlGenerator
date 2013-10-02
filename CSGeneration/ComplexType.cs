@@ -19,6 +19,8 @@ namespace CSGeneration
             public string Name { get; set; }
 
             public Type Type { get; set; }
+
+            public string ComplexType { get; set; }
         }
     }
 }
